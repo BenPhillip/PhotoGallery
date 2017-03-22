@@ -1,11 +1,13 @@
 package com.example.gzp.photogallery;
 
+import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.IntentService;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ProviderInfo;
 import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.os.SystemClock;
@@ -24,7 +26,13 @@ import java.util.List;
 
 public class PollService extends IntentService {
     private static final String TAG = "PollService";
-    private static final int POLL_INTERVAL=1000*60;//60 seconds
+    private static final int POLL_INTERVAL=1000*60;//60 seconds 更新间隔
+    public static final String ACTION_SHOW_NOTIFICATION=
+            "com.example.gzp.photogallery.SHOW_NOTIFICARION";       //过滤器参数
+    public static final String PERM_PRIVATE =       //私有权限，传入sendBroadcast
+            "com.example.gzp.photogallery.PRIVATE";   //三个地方同时出现，
+    public static final String REQUEST_CODE = "REQUEST_CODE";
+    public static final String NOTIFICATION = "NOTIFICATION";
 
     public static Intent newIntent(Context context) {
         return new Intent(context, PollService.class);
@@ -35,7 +43,7 @@ public class PollService extends IntentService {
      * 然后，将其发送给系统中的其他部件，如AlarmManager。
      * 实现一个启停定时器的setServiceAlarm(Context,boolean)方法，
      * @param context
-     * @param inOn
+     * @param isOn 是否开启服务
      */
     public static void setServiceAlarm(Context context, boolean isOn) {
         Intent i = PollService.newIntent(context);
@@ -46,7 +54,8 @@ public class PollService extends IntentService {
         */
         PendingIntent pi = PendingIntent.getService(context, 0, i, 0);
 
-        AlarmManager alarmManager = (AlarmManager) context.getSystemService(context.ALARM_SERVICE);
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService
+                (context.ALARM_SERVICE);
 
         /*设置和取消定时器
         * 设置定时器用AlarmManager.setRepeating 方法
@@ -64,7 +73,9 @@ public class PollService extends IntentService {
             pi.cancel();//  取消当前活动PendingIntent
             Log.i(TAG, "setServiceAlarm: alarm off");
         }
+        QueryPreferences.setAlarmOn(context,isOn);
     }
+
 
     /**
      * 一个PendingIntent只能登记一个计时器。因此判断是否存在来确认计时器是否激活
@@ -116,13 +127,25 @@ public class PollService extends IntentService {
                     .setContentIntent(pi)//点击通知要启动的动作
                     .setAutoCancel(true)//点击时清除抽屉中图标
                     .build();
-            //从当前的context中取出一个实例，调用notify贴出通知
-            NotificationManagerCompat notificationManager=NotificationManagerCompat.from(this);
-            notificationManager.notify(0, notification);
+//            //从当前的context中取出一个实例，调用notify贴出通知
+//            NotificationManagerCompat notificationManager=NotificationManagerCompat.from(this);
+//            notificationManager.notify(0, notification);
+//            //只要有新结果就会对外广播
+//            sendBroadcast(new Intent(ACTION_SHOW_NOTIFICATION),PERM_PRIVATE);
+            showBackgroundNotification(0,notification);
             Log.i(TAG, "onHandleIntent: send notification");
+
         }
 
         QueryPreferences.setLastResultId(this,resultId);
+    }
+    private void showBackgroundNotification(int request, Notification notification) {
+        Intent i = new Intent(ACTION_SHOW_NOTIFICATION);
+        i.putExtra(REQUEST_CODE, request);
+        i.putExtra(NOTIFICATION, notification);
+        sendOrderedBroadcast(i,PERM_PRIVATE,null,null,
+                Activity.RESULT_OK,null,null);//resultcode 初始值
+
     }
 
     private boolean isNetworkAvailableAndConnected() {

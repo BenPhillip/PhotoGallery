@@ -14,6 +14,7 @@ import android.support.v7.widget.SearchView;
 public class QueryPreferences {
     private static final String PREF_SEARCH_QUERY = "searchQuery";
     private static final String PREF_LAST_RESULT_ID = "lastResultId";
+    private static final String PREF_IS_ALARM_ON="isAlarmOn";
 
     public static String getLastResultId(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context)
@@ -37,5 +38,17 @@ public class QueryPreferences {
                 .edit()             //获取Editor。类似FragmentTransaction 操作
                 .putString(PREF_SEARCH_QUERY,query)
                 .apply();           //提交一组数据操作
+    }
+
+    public static boolean isAlarmOn(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(PREF_IS_ALARM_ON, false);
+    }
+
+    public static void setAlarmOn(Context context, boolean isOn) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(PREF_IS_ALARM_ON,isOn)
+                .apply();
     }
 }

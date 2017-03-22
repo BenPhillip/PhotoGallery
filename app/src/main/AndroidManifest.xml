@@ -2,8 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.example.gzp.photogallery">
 
+    <permission
+        android:name="com.example.gzp.photogallery.PRIVATE"
+        android:protectionLevel="signature"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="com.example.gzp.photogallery.PRIVATE"/>
 
     <application
         android:allowBackup="true"
@@ -19,6 +24,22 @@
             </intent-filter>
         </activity>
         <service android:name=".PollService"/>
+        <receiver android:name=".StartupReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+
+            </intent-filter>
+        </receiver>
+        <!--注册广播 不对外开放，优先级为最低级保证最后一个收到-->
+        <receiver android:name=".NotificationReceiver"
+                  android:exported="false">
+            <intent-filter
+                android:priority="-999">
+                <action
+                    android:name="com.example.gzp.photogallery.SHOW_NOTIFICARION"/>
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>
