@@ -22,6 +22,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -86,17 +87,27 @@ public class PhotoGalleryFragment extends VisibleFragment  {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View v = inflater.inflate(R.layout.fragement_photo_gallery, container, false);
+       final View v = inflater.inflate(R.layout.fragement_photo_gallery, container, false);
         mPhotoRecyclerView = (RecyclerView) v.findViewById(R.id.fragment_photo_gallery_recycler_view);
-        LinearLayoutManager layoutManager=new GridLayoutManager(getActivity(), 3);
-        mPhotoRecyclerView.setLayoutManager(layoutManager);
-        mPhotoRecyclerView.addOnScrollListener(new PhotoScrollListener(layoutManager) {
+
+        ViewTreeObserver treeObserver=v.getViewTreeObserver();
+        treeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
-            public void onLoadMore(int page) {
-                loadMorePhoto(page);
-                Log.d(TAG, "onLoadMore: ");
+            public void onGlobalLayout() {
+                v.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                int w=mPhotoRecyclerView.getWidth();
+                LinearLayoutManager layoutManager=new GridLayoutManager(getActivity(), w/350);
+                mPhotoRecyclerView.setLayoutManager(layoutManager);
+                mPhotoRecyclerView.addOnScrollListener(new PhotoScrollListener(layoutManager) {
+                    @Override
+                    public void onLoadMore(int page) {
+                        loadMorePhoto(page);
+                        Log.d(TAG, "onLoadMore: ");
+                    }
+                });
             }
         });
+
         mSwipeRefreshLayout = (SwipeRefreshLayout) v.findViewById(R.id.swipe_refresh_layout);
         mSwipeRefreshLayout.setColorSchemeResources(R.color.colorAccent);
         mSwipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
@@ -232,7 +243,7 @@ public class PhotoGalleryFragment extends VisibleFragment  {
 
     private void refreshItems() {
         String query = QueryPreferences.getStoredQuery(getActivity());
-        new FetchItemsTask(query).execute();
+        new FetchItemsTask(query).execute(1);
         getActivity().runOnUiThread(new Runnable() {
             @Override
             public void run() {
