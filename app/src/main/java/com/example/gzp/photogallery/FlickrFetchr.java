@@ -3,6 +3,8 @@ package com.example.gzp.photogallery;
 import android.net.Uri;
 import android.util.Log;
 
+import com.google.gson.Gson;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -15,6 +17,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+
 /**
  * Created by Ben on 2017/3/1.
  */
@@ -24,6 +27,7 @@ public class FlickrFetchr {
     private static final String API_KEY="68ad1e04da47c96f8018a749c40466c9";
     private static final String FETCH_RECENTS_METHOD="flickr.photos.getRecent";
     private static final String SEARCH_METHOD = "flickr.photos.search";
+    public static final String  PER_PAGE="20";
     private static final Uri ENDPOINT = Uri
             .parse("https://api.flickr.com/services/rest/")
             .buildUpon()
@@ -31,6 +35,7 @@ public class FlickrFetchr {
             .appendQueryParameter("format", "json")
             .appendQueryParameter("nojsoncallback","1")
             .appendQueryParameter("extras","url_s")
+            .appendQueryParameter("per_page",PER_PAGE)
             .build();
 
 
@@ -67,20 +72,33 @@ public class FlickrFetchr {
         }
     }
 
+/*    public String getUrlString(String urlSpec) throws IOException{
+        OkHttpClient client = new OkHttpClient();
+        Request request=new Request.Builder()
+                .url(urlSpec)
+                .build();
+        Response response=client.newCall(request).execute();
+        Log.i(TAG, response.body().toString());
+        return response.body().toString();
+    }*/
+
     public String getUrlString(String urlSpec)throws  IOException{
           /*解码指定的 byte 数组，构造一个新的 String。
           新 String 的长度是字符集的函数，因此可能不等于 byte 数组的长度。 */
         return new String(getUrlBytes(urlSpec));
+
     }
 
-    public List<GalleryItem> fetchRecentPhotos() {
-        String url=buildUrl(FETCH_RECENTS_METHOD,null);
-        return downloadGalleryItems(url);
+    public List<GalleryItem> fetchRecentPhotos(int page) {
+        String url=buildUrl(FETCH_RECENTS_METHOD,null,page);
+        //        return downloadGalleryItems(url);
+        return downloadGalleryItemsByGson(url);
     }
 
-    public List<GalleryItem> searchPhotos(String query) {
-        String url = buildUrl(SEARCH_METHOD, query);
-        return downloadGalleryItems(url);
+    public List<GalleryItem> searchPhotos(String query,int page) {
+        String url = buildUrl(SEARCH_METHOD, query,page);
+        //        return downloadGalleryItems(url);
+        return downloadGalleryItemsByGson(url);
     }
 
     private List<GalleryItem> downloadGalleryItems(String url) {
@@ -108,15 +126,6 @@ public class FlickrFetchr {
         return items;
     }
 
-    private String buildUrl(String method, String query) {
-        Uri.Builder urlBuilder = ENDPOINT.buildUpon()
-                .appendQueryParameter("method", method);
-        if (method.equals(SEARCH_METHOD)) {
-            urlBuilder.appendQueryParameter("text", query);
-        }
-        return urlBuilder.build().toString();
-    }
-
     /*取出每张照片的信息
         并对每张照片的url_s属性进行检查，并不是每张照片都有这属性，如果有则添加
     */
@@ -140,5 +149,30 @@ public class FlickrFetchr {
             items.add(item);
         }
 
+    }
+
+    private List<GalleryItem> downloadGalleryItemsByGson(String url) {
+        List<GalleryItem> items = new ArrayList<>();
+        Log.i(TAG, url);
+        Gson gson=new Gson();
+        try {
+            FlickrJson flickrJson = gson.fromJson(getUrlString(url), FlickrJson.class);
+            items=flickrJson.photos.getPhoto();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return items;
+
+    }
+
+    private String buildUrl(String method, String query,int page) {
+        Uri.Builder urlBuilder = ENDPOINT.buildUpon()
+                .appendQueryParameter("method", method)
+                .appendQueryParameter("page",String.valueOf(page));
+        if (method.equals(SEARCH_METHOD)) {
+            urlBuilder.appendQueryParameter("text", query);
+        }
+        return urlBuilder.build().toString();
     }
 }

@@ -8,8 +8,11 @@ import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.StrictMode;
 import android.support.v4.app.Fragment;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.GridLayoutManager;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.SearchView;
 import android.util.Log;
@@ -33,8 +36,10 @@ public class PhotoGalleryFragment extends VisibleFragment  {
     private static final String TAG = "PhotoGalleryFragment";
 
     private RecyclerView mPhotoRecyclerView;
+    private SwipeRefreshLayout mSwipeRefreshLayout;
     private List<GalleryItem> mItems = new ArrayList<>();
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
+    private ProgressDialog mProgressDialog;
 
     public static PhotoGalleryFragment newInstance() {
         PhotoGalleryFragment fragment = new PhotoGalleryFragment();
@@ -47,6 +52,7 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         setRetainInstance(true);
         setHasOptionsMenu(true);
         updateItems();
+
 //        Intent i = PollService.newIntent(getActivity());
 //        getActivity().startService(i);
 
@@ -82,7 +88,28 @@ public class PhotoGalleryFragment extends VisibleFragment  {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragement_photo_gallery, container, false);
         mPhotoRecyclerView = (RecyclerView) v.findViewById(R.id.fragment_photo_gallery_recycler_view);
-        mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(), 3));
+        LinearLayoutManager layoutManager=new GridLayoutManager(getActivity(), 3);
+        mPhotoRecyclerView.setLayoutManager(layoutManager);
+        mPhotoRecyclerView.addOnScrollListener(new PhotoScrollListener(layoutManager) {
+            @Override
+            public void onLoadMore(int page) {
+                loadMorePhoto(page);
+                Log.d(TAG, "onLoadMore: ");
+            }
+        });
+        mSwipeRefreshLayout = (SwipeRefreshLayout) v.findViewById(R.id.swipe_refresh_layout);
+        mSwipeRefreshLayout.setColorSchemeResources(R.color.colorAccent);
+        mSwipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                    refreshItems();
+                    }
+                }).start();
+            }
+        });
         setAdapter();
         return v;
     }
@@ -166,13 +193,53 @@ public class PhotoGalleryFragment extends VisibleFragment  {
 
     private void updateItems() {
         String query = QueryPreferences.getStoredQuery(getActivity());
-        new FetchItemsTask(query).execute();
+        new FetchItemsTask(query){
+            @Override
+            protected void onPreExecute() {
+                super.onPreExecute();
+                mProgressDialog = new ProgressDialog(getActivity());
+                mProgressDialog.setTitle(getString(R.string.progress_dialog_title));
+                mProgressDialog.setMessage(getString(R.string.progeress_dialog_message));
+                mProgressDialog.setCancelable(true);
+                mProgressDialog.show();
+            }
+
+            @Override
+            protected void onPostExecute(List<GalleryItem> items) {
+                super.onPostExecute(items);
+                mProgressDialog.dismiss();
+            }
+        }.execute(1);
+    }
+
+    private void loadMorePhoto(int page) {
+
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        new FetchItemsTask(query){
+            @Override
+            protected void onPostExecute(List<GalleryItem> items) {
+                mItems.addAll(items);
+            }
+        }.execute(page);
+
     }
     private void setAdapter() {
         if (isAdded()) {
             // Return true if the fragment is currently added to its activity.
             mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
         }
+    }
+
+    private void refreshItems() {
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        new FetchItemsTask(query).execute();
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                setAdapter();
+                mSwipeRefreshLayout.setRefreshing(false);
+            }
+        });
     }
 
     private class PhotoHolder extends RecyclerView.ViewHolder
@@ -232,33 +299,63 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         }
     }
 
+    private abstract class PhotoScrollListener extends RecyclerView.OnScrollListener{
+        private LinearLayoutManager mLayoutManager;
+        private final int MAX_PHOTOS=1000;
+        private boolean loading = true;
+        private int previousTotal = 0;
+        private int firstVisibleItem, visibleItemCount, totalItemCount;
+        private int currentPage = 1;
 
-    private class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem>> {
+        public PhotoScrollListener(LinearLayoutManager layoutManager) {
+            this.mLayoutManager=layoutManager;
+        }
+        @Override
+        public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+            super.onScrolled(recyclerView, dx, dy);
+            //已经滑出去的viewHolder
+            visibleItemCount=recyclerView.getChildCount();
+            //Returns the number of items in the adapter bound to the parent RecyclerView
+            totalItemCount=mLayoutManager.getItemCount();
+            firstVisibleItem=mLayoutManager.findFirstVisibleItemPosition();
+
+            if (loading) {
+                if (totalItemCount > previousTotal) {
+                    loading = false;
+                    previousTotal = totalItemCount;
+                }
+            }
+            if (!loading
+                    && (totalItemCount - visibleItemCount) <= firstVisibleItem) {
+
+                final int per_page=Integer.parseInt(FlickrFetchr.PER_PAGE);
+                if(MAX_PHOTOS/per_page>currentPage){
+                    onLoadMore(++currentPage);
+                    loading = true;
+                }
+
+            }
+        }
+
+        public abstract void onLoadMore(int Page);
+    }
+
+
+    private class FetchItemsTask extends AsyncTask<Integer, Void, List<GalleryItem>> {
         private String mQuery;
-        private ProgressDialog mProgressDialog;
+
 
         public FetchItemsTask(String query) {
             mQuery=query;
         }
 
-        /**
-         * 在执行doInBackground调用
-         * 用来初始化进度框
-         */
+
         @Override
-        protected void onPreExecute() {
-            mProgressDialog = new ProgressDialog(getActivity());
-            mProgressDialog.setTitle(getString(R.string.progress_dialog_title));
-            mProgressDialog.setMessage(getString(R.string.progeress_dialog_message));
-            mProgressDialog.setCancelable(true);
-            mProgressDialog.show();
-        }
-        @Override
-        protected List<GalleryItem> doInBackground(Void... params) {
+        protected List<GalleryItem> doInBackground(Integer ... params) {
             if(mQuery==null)
-                return new FlickrFetchr().fetchRecentPhotos();
+                return new FlickrFetchr().fetchRecentPhotos(params[0]);
             else
-                return new FlickrFetchr().searchPhotos(mQuery);
+                return new FlickrFetchr().searchPhotos(mQuery,params[0]);
 
         }
 
@@ -271,9 +368,10 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         protected void onPostExecute(List<GalleryItem> items) {
             mItems=items;
             setAdapter();
-            mProgressDialog.dismiss();
         }
+
     }
+
 
 
 }

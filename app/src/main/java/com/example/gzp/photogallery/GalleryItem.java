@@ -2,6 +2,8 @@ package com.example.gzp.photogallery;
 
 import android.net.Uri;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * Created by Ben on 2017/3/2.
  * 保存图片的信息
@@ -12,9 +14,13 @@ import android.net.Uri;
  */
 
 public class GalleryItem {
+    @SerializedName("title")
     private String mCaption;    //  图片说明
+    @SerializedName("id")
     private String mId;
+    @SerializedName("url_s")
     private String mUrl;
+    @SerializedName("owner")
     private String mOwner; //owner属性值就是user-id
 
 
