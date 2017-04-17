@@ -1,11 +1,14 @@
 package com.example.gzp.photogallery;
 
+import android.app.Application;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.util.Log;
+
+import com.bumptech.glide.Glide;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,7 +33,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     private ThumbnailDownloaderListener<T> mThumbnailDownloadListener;
 
     public interface ThumbnailDownloaderListener<T> {
-        void onThumbnailDownloaded(T target, Bitmap thumbnail);
+        void onThumbnailDownloaded(T target, byte[] bytes);
     }
 
     public void setThumbnailDownloadListener(ThumbnailDownloaderListener<T> listener) {
@@ -108,9 +111,12 @@ public class ThumbnailDownloader<T> extends HandlerThread {
             }
 
             /*最后，使用BitmapFactory把getUrlBytes(...)返回的字节数组转换为位图。*/
-            byte[] bitmapBytes = new FlickrFetchr().getUrlBytes(url);
-            final Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
+            final byte[] bitmapBytes = new FlickrFetchr().getUrlBytesByOkHttp(url);
+//            final Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
+
+            final String  pictureData=new FlickrFetchr().getUrlStringByOkHttp(url);
             Log.i(TAG, "handleRequet: Bitmap created");
+
 
             /*
             Handler.post(Runnable)是一个发布Message的便利方法
@@ -132,7 +138,8 @@ public class ThumbnailDownloader<T> extends HandlerThread {
                         return;
                     }
                     mRequestMap.remove(target);
-                    mThumbnailDownloadListener.onThumbnailDownloaded(target,bitmap);
+                    mThumbnailDownloadListener.onThumbnailDownloaded(target,
+                            bitmapBytes);
                     Log.d(TAG, "Request send Bitmap");
                 }
             });

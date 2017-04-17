@@ -8,8 +8,6 @@ import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.StrictMode;
-import android.support.v4.app.Fragment;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
@@ -24,7 +22,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.ImageView;
-import android.widget.TextView;
+
+import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,10 +72,13 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         mThumbnailDownloader.setThumbnailDownloadListener(
                 new ThumbnailDownloader.ThumbnailDownloaderListener<PhotoHolder>() {
             @Override
-            public void onThumbnailDownloaded(PhotoHolder photoHolder, Bitmap thumbnail) {
-                Drawable drawable = new BitmapDrawable(getResources(), thumbnail);
+            public void onThumbnailDownloaded(PhotoHolder photoHolder, byte[]  bitmapBytes) {
+//                Drawable drawable = new BitmapDrawable(getResources(), thumbnail);
+
+
+
                 Log.d(TAG, "onThumbnailDownloaded: 准备加载bitmap");
-                photoHolder.bindDrawable(drawable);
+                photoHolder.bindDrawable(bitmapBytes);
             }
         });
         mThumbnailDownloader.start();//就绪态
@@ -102,7 +104,6 @@ public class PhotoGalleryFragment extends VisibleFragment  {
                     @Override
                     public void onLoadMore(int page) {
                         loadMorePhoto(page);
-                        Log.d(TAG, "onLoadMore: ");
                     }
                 });
             }
@@ -266,6 +267,14 @@ public class PhotoGalleryFragment extends VisibleFragment  {
 
         public void bindDrawable(Drawable drawable) {
             mImageView.setImageDrawable(drawable);
+        }
+        public void bindDrawable(byte[]  bitmapBytes) {
+            Glide.with(PhotoGalleryFragment.this)
+                    .load(bitmapBytes)
+                    .asBitmap()
+                    .placeholder(R.drawable.bill_up_close)
+                    .error(R.drawable.error)
+                    .into(mImageView);
         }
 
         public void bindGalleryItem(GalleryItem galleryItem) {
