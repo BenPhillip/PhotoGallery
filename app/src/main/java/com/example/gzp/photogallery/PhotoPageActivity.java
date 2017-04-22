@@ -21,4 +21,16 @@ public class PhotoPageActivity extends SingleFragmentActivity {
     protected Fragment createFragment() {
         return new PhotoPageFragment().newInstance(getIntent().getData());
     }
+
+    @Override
+    public void onBackPressed(){
+        CallBacks callBacks=(CallBacks) getSupportFragmentManager().findFragmentById(R.id.activity_container);
+        if(callBacks.doGoback()){
+            super.onBackPressed();
+        }
+    }
+
+    public interface  CallBacks{
+        boolean doGoback();
+    }
 }

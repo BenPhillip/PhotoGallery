@@ -1,9 +1,11 @@
 package com.example.gzp.photogallery;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,7 +21,8 @@ import android.widget.ProgressBar;
  * 3.覆盖webView的shouldOverrideUrlLoading(WebView,String)方法
  */
 
-public class PhotoPageFragment extends VisibleFragment {
+public class PhotoPageFragment extends VisibleFragment implements PhotoPageActivity.CallBacks {
+    private static final String TAG = "PhotoPageFragment";
     private static final String ARG_URI = "photo_page_url";
 
     private Uri mUri;
@@ -58,6 +61,7 @@ public class PhotoPageFragment extends VisibleFragment {
         mWebView = (WebView) v.findViewById(R.id.fragment_photo_page_web_view);
         //获取WebSetting的实例，并启用JavaScript
         mWebView.getSettings().setJavaScriptEnabled(true);
+
         mWebView.setWebChromeClient(new WebChromeClient(){
             @Override
             public void onProgressChanged(WebView webView, int newProgress) {
@@ -79,11 +83,30 @@ public class PhotoPageFragment extends VisibleFragment {
         mWebView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return false;
+                Uri uri = Uri.parse(url);
+                String scheme = uri.getScheme();
+                Log.d(TAG, "shouldOverrideUrlLoading: "+scheme);
+                if(scheme.equalsIgnoreCase("HTTP")||scheme.equalsIgnoreCase("HTTPS")){
+                    return false;
+                } else {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                    getActivity().startActivity(intent);
+                    return true;
+                }
             }
-        });
-        mWebView.loadUrl(mUri.toString());  //加载URL必须在配置完后进行
 
+        });
+
+        mWebView.loadUrl(mUri.toString());//加载URL必须在配置完后进行
         return v;
+    }
+    //实现回调接口
+    @Override
+    public boolean doGoback() {
+        if(mWebView.canGoBack()){
+            mWebView.goBack();
+            return false;
+        }
+        return true;
     }
 }
