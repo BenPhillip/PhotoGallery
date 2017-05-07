@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import com.example.gzp.photogallery.Util.QueryPreferences;
+
 /**
  * Created by Ben on 2017/3/21.
  * 通过监听带有BOOT_COMPLETED操作的broadcast intent，可获知设备是否已完成启动

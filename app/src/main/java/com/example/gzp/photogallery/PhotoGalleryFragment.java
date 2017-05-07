@@ -2,12 +2,8 @@ package com.example.gzp.photogallery;
 
 import android.app.ProgressDialog;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
@@ -24,9 +20,16 @@ import android.view.ViewTreeObserver;
 import android.widget.ImageView;
 
 import com.bumptech.glide.Glide;
+import com.example.gzp.photogallery.Model.GalleryItem;
+import com.example.gzp.photogallery.Util.FlickrFetchr;
+import com.example.gzp.photogallery.Util.QueryPreferences;
+import com.example.gzp.photogallery.Util.ThumbnailDownloader;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * Created by Ben on 2017/3/1.
@@ -38,8 +41,10 @@ public class PhotoGalleryFragment extends VisibleFragment  {
     private RecyclerView mPhotoRecyclerView;
     private SwipeRefreshLayout mSwipeRefreshLayout;
     private List<GalleryItem> mItems = new ArrayList<>();
-    private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
+//    private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
     private ProgressDialog mProgressDialog;
+    private LinearLayoutManager layoutManager;
+
 
     public static PhotoGalleryFragment newInstance() {
         PhotoGalleryFragment fragment = new PhotoGalleryFragment();
@@ -53,38 +58,6 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         setHasOptionsMenu(true);
         updateItems();
 
-//        Intent i = PollService.newIntent(getActivity());
-//        getActivity().startService(i);
-
-
-
-/*
-*创建并启动线程
-* 这是一种保证线程就绪的处理方式，可以避免潜在竞争（尽管极少发生）。
-*在getLooper（）中 :如果线程已经启动,一直等到Looper创建
-* 调用getLooper()方法之前，没办法保证onLooperPrepared()方法已得到调用。
-* Looper创建时会调用onLooperPrepared()
-*
-*/
-        Handler responseHandler = new Handler();
-
-        mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
-        mThumbnailDownloader.setThumbnailDownloadListener(
-                new ThumbnailDownloader.ThumbnailDownloaderListener<PhotoHolder>() {
-            @Override
-            public void onThumbnailDownloaded(PhotoHolder photoHolder, byte[]  bitmapBytes) {
-//                Drawable drawable = new BitmapDrawable(getResources(), thumbnail);
-
-
-
-                Log.d(TAG, "onThumbnailDownloaded: 准备加载bitmap");
-                photoHolder.bindDrawable(bitmapBytes);
-            }
-        });
-        mThumbnailDownloader.start();//就绪态
-        mThumbnailDownloader.getLooper();//确保已经是运行态，运行run()方法
-        Log.i(TAG, "onCreate: Background thread started");
-
     }
 
     @Override
@@ -93,12 +66,12 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         mPhotoRecyclerView = (RecyclerView) v.findViewById(R.id.fragment_photo_gallery_recycler_view);
 
         ViewTreeObserver treeObserver=v.getViewTreeObserver();
-        treeObserver.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+        treeObserver.addOnGlobalLayoutListener( new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
                 v.getViewTreeObserver().removeOnGlobalLayoutListener(this);
                 int w=mPhotoRecyclerView.getWidth();
-                LinearLayoutManager layoutManager=new GridLayoutManager(getActivity(), w/350);
+                layoutManager=new GridLayoutManager(getActivity(),w/350);
                 mPhotoRecyclerView.setLayoutManager(layoutManager);
                 mPhotoRecyclerView.addOnScrollListener(new PhotoScrollListener(layoutManager) {
                     @Override
@@ -107,7 +80,9 @@ public class PhotoGalleryFragment extends VisibleFragment  {
                     }
                 });
             }
+
         });
+
 
         mSwipeRefreshLayout = (SwipeRefreshLayout) v.findViewById(R.id.swipe_refresh_layout);
         mSwipeRefreshLayout.setColorSchemeResources(R.color.colorAccent);
@@ -129,14 +104,12 @@ public class PhotoGalleryFragment extends VisibleFragment  {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        mThumbnailDownloader.clearQueue();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        /*退出线程*/
-        mThumbnailDownloader.quit();
+
         Log.i(TAG, "onDestroy: Background thread destoryed");
     }
 
@@ -158,7 +131,8 @@ public class PhotoGalleryFragment extends VisibleFragment  {
                 QueryPreferences.setStoredQuery(getActivity(),s);
                 searchView.clearFocus();//清除焦点，隐藏键盘
                 searchView.onActionViewCollapsed();//收起SearchView视图
-                updateItems();
+//                updateItems();
+                refreshItems();
                 return  true;
             }
 
@@ -230,7 +204,10 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         new FetchItemsTask(query){
             @Override
             protected void onPostExecute(List<GalleryItem> items) {
+                Log.d(TAG, "onPostExecute: ");
                 mItems.addAll(items);
+                mPhotoRecyclerView.getAdapter().notifyDataSetChanged();
+
             }
         }.execute(page);
 
@@ -239,19 +216,28 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         if (isAdded()) {
             // Return true if the fragment is currently added to its activity.
             mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
+
         }
     }
 
     private void refreshItems() {
         String query = QueryPreferences.getStoredQuery(getActivity());
-        new FetchItemsTask(query).execute(1);
-        getActivity().runOnUiThread(new Runnable() {
+        new FetchItemsTask(query){
             @Override
-            public void run() {
-                setAdapter();
+            protected void onPostExecute(List<GalleryItem> items){
+                super.onPostExecute(items);
+                mPhotoRecyclerView.getAdapter().notifyDataSetChanged();
                 mSwipeRefreshLayout.setRefreshing(false);
+                mPhotoRecyclerView.addOnScrollListener(new PhotoScrollListener(layoutManager) {
+                    @Override
+                    public void onLoadMore(int Page) {
+                        loadMorePhoto(Page);
+                    }
+                });
             }
-        });
+        }.execute(1);
+
+
     }
 
     private class PhotoHolder extends RecyclerView.ViewHolder
@@ -265,17 +251,6 @@ public class PhotoGalleryFragment extends VisibleFragment  {
             mImageView.setOnClickListener(this);
         }
 
-        public void bindDrawable(Drawable drawable) {
-            mImageView.setImageDrawable(drawable);
-        }
-        public void bindDrawable(byte[]  bitmapBytes) {
-            Glide.with(PhotoGalleryFragment.this)
-                    .load(bitmapBytes)
-                    .asBitmap()
-                    .placeholder(R.drawable.bill_up_close)
-                    .error(R.drawable.error)
-                    .into(mImageView);
-        }
 
         public void bindGalleryItem(GalleryItem galleryItem) {
             mGalleryItem=galleryItem;
@@ -307,10 +282,16 @@ public class PhotoGalleryFragment extends VisibleFragment  {
         public void onBindViewHolder(PhotoHolder holder, int position) {
             GalleryItem galleryItem = mGalleryItems.get(position);
             holder.bindGalleryItem(galleryItem);
-            Drawable placeholder = getResources().getDrawable(R.drawable.bill_up_close);
-            holder.bindDrawable(placeholder);
+//            Drawable placeholder = getResources().getDrawable(R.drawable.placeholder);
+//            holder.bindDrawable(placeholder);
             //调用线程的queueThumbnail()方法，并传入放置图片的PhotoHolder和GalleryItem的URL
-            mThumbnailDownloader.queueThumbnail(holder,galleryItem.getUrl());
+//            mThumbnailDownloader.queueThumbnail(holder,galleryItem.getUrl());
+            Glide.with(PhotoGalleryFragment.this)
+                    .load(galleryItem.getUrl())
+                    .asBitmap()
+                    .placeholder(R.drawable.placeholder)
+                    .error(R.drawable.error)
+                    .into(holder.mImageView);
         }
 
         @Override
@@ -321,11 +302,12 @@ public class PhotoGalleryFragment extends VisibleFragment  {
 
     private abstract class PhotoScrollListener extends RecyclerView.OnScrollListener{
         private LinearLayoutManager mLayoutManager;
-        private final int MAX_PHOTOS=1000;
         private boolean loading = true;
         private int previousTotal = 0;
         private int firstVisibleItem, visibleItemCount, totalItemCount;
         private int currentPage = 1;
+
+        public abstract void onLoadMore(int Page);
 
         public PhotoScrollListener(LinearLayoutManager layoutManager) {
             this.mLayoutManager=layoutManager;
@@ -338,7 +320,6 @@ public class PhotoGalleryFragment extends VisibleFragment  {
             //Returns the number of items in the adapter bound to the parent RecyclerView
             totalItemCount=mLayoutManager.getItemCount();
             firstVisibleItem=mLayoutManager.findFirstVisibleItemPosition();
-
             if (loading) {
                 if (totalItemCount > previousTotal) {
                     loading = false;
@@ -347,17 +328,13 @@ public class PhotoGalleryFragment extends VisibleFragment  {
             }
             if (!loading
                     && (totalItemCount - visibleItemCount) <= firstVisibleItem) {
-
-                final int per_page=Integer.parseInt(FlickrFetchr.PER_PAGE);
-                if(MAX_PHOTOS/per_page>currentPage){
-                    onLoadMore(++currentPage);
-                    loading = true;
-                }
-
+                currentPage++;
+                onLoadMore(currentPage);
+                loading = true;
             }
         }
 
-        public abstract void onLoadMore(int Page);
+
     }
 
 

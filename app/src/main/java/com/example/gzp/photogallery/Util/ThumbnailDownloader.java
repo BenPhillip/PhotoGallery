@@ -1,14 +1,9 @@
-package com.example.gzp.photogallery;
+package com.example.gzp.photogallery.Util;
 
-import android.app.Application;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.util.Log;
-
-import com.bumptech.glide.Glide;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;

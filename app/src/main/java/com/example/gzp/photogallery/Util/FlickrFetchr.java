@@ -1,8 +1,10 @@
-package com.example.gzp.photogallery;
+package com.example.gzp.photogallery.Util;
 
 import android.net.Uri;
 import android.util.Log;
 
+import com.example.gzp.photogallery.Model.GalleryItem;
+import com.example.gzp.photogallery.Model.FlickrJson;
 import com.google.gson.Gson;
 
 
@@ -26,7 +28,7 @@ public class FlickrFetchr {
     private static final String API_KEY="68ad1e04da47c96f8018a749c40466c9";
     private static final String FETCH_RECENTS_METHOD="flickr.photos.getRecent";
     private static final String SEARCH_METHOD = "flickr.photos.search";
-    public static final String  PER_PAGE="20";
+    public static final String  PER_PAGE="15";
     private static final Uri ENDPOINT = Uri
             .parse("https://api.flickr.com/services/rest/")
             .buildUpon()

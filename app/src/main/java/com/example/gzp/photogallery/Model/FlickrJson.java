@@ -1,4 +1,4 @@
-package com.example.gzp.photogallery;
+package com.example.gzp.photogallery.Model;
 
 import com.google.gson.annotations.SerializedName;
 
@@ -9,7 +9,7 @@ import java.util.List;
  */
 
 public class FlickrJson {
-    JsonPhotos photos;
+    public JsonPhotos photos;
 
     public class JsonPhotos{
         private int page;

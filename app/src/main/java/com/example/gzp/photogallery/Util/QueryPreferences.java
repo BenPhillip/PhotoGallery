@@ -1,4 +1,4 @@
-package com.example.gzp.photogallery;
+package com.example.gzp.photogallery.Util;
 
 import android.content.Context;
 import android.preference.PreferenceManager;

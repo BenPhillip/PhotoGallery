@@ -7,14 +7,16 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ProviderInfo;
 import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
+
+import com.example.gzp.photogallery.Model.GalleryItem;
+import com.example.gzp.photogallery.Util.FlickrFetchr;
+import com.example.gzp.photogallery.Util.QueryPreferences;
 
 import java.util.List;
 

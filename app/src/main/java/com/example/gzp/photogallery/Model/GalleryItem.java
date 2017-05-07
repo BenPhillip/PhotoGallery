@@ -1,4 +1,4 @@
-package com.example.gzp.photogallery;
+package com.example.gzp.photogallery.Model;
 
 import android.net.Uri;
 
